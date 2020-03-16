@@ -31,8 +31,12 @@ def extract_colorchecker_colors(fn, adj):
     cc_img = cc_img * adj
     cc_img = np.clip(cc_img, 0, 2 ** 12 - 1)
     cc_img = np.divide(cc_img, 2 ** 4)
-    cc_img = 255. * np.power(cc_img / 255.,
-                             1 / 2.2)  # monitors expect their input in sRGB color space (and promptly convert to linear color space, like cameras collect in, because they are physical items, counting and emiting photons. More photons are not going to hit the sensor in places where more photons already have. They are linear devices.)
+    # Monitors expect their input in sRGB color space (and promptly convert to
+    # linear color space, like cameras collect in, because they are physical
+    # items, counting and emiting photons. More photons are not going to hit
+    # the sensor in places where more photons already have. They are linear
+    # devices.)
+    cc_img = 255. * np.power(cc_img / 255., 1 / 2.2)
     cc_img = np.clip(cc_img, 0, 255)
     cc_img = cc_img.astype(np.uint8)
     cv2.imwrite('gamma.png', cc_img)
@@ -219,8 +223,7 @@ def main():
     x = fit_colorchecker_equation(avg_colors)
     corrected_img = background_correct_and_apply_colorcheck_correction(test_fn, adj, x)
     cv2.imwrite('project.png', corrected_img)
- 
- 
-if __name__== "__main__":
-    main()
 
+
+if __name__ == "__main__":
+    main()

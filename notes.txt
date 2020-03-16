@@ -1,0 +1,1 @@
+The CR2 embedded jpeg is a preview images with the same resolution as the final jpeg, but 1/5 the filelength. The CR2 resolution is slightly greater, maybe 20 rows and columns greater than the jpeg images.

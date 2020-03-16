@@ -6,53 +6,51 @@ import cv2
 import numpy as np
 
 
-def create_background_adjustment(fn):
-    ref_img = cv2.imread(fn, cv2.IMREAD_UNCHANGED)
+def extract_colorchecker_colors2(cc_img):
+    cc_img2 = np.clip(cc_img, 0, 2 ** 14 - 1)
+    cc_img2 = np.divide(cc_img2, 2 ** 6)
+    cc_img2 = np.clip(cc_img2, 0, 255)
+    cc_img2 = cc_img2.astype(np.uint8)
+    cv2.imwrite('linear.png', cc_img2)
 
-    ref_img = cv2.medianBlur(ref_img, 5)
-    ref_img = cv2.blur(ref_img, (63, 63))
-    ref_img = cv2.GaussianBlur(ref_img, (63, 63), 0)
-
-    avg_bgr = np.average(np.average(ref_img, axis=0), axis=0)
-    avg_grey = np.average(avg_bgr)
-
-    adj = avg_grey / ref_img
-
-    print(avg_bgr, avg_grey)
-    print(ref_img[0, 0], adj[0, 0], (ref_img * adj)[0, 0])
-
-    cv2.imwrite('ref_img.png', ref_img)
-
-    return adj
-
-
-def extract_colorchecker_colors(fn, adj):
-    cc_img = cv2.imread(fn, cv2.IMREAD_UNCHANGED)
-    cc_img = cc_img * adj
-    cc_img = np.clip(cc_img, 0, 2 ** 12 - 1)
-    cc_img = np.divide(cc_img, 2 ** 4)
+    cc_img2 = np.clip(cc_img, 0, 2 ** 14 - 1)
+    cc_img2 = np.divide(cc_img2, 2 ** 6)
     # Monitors expect their input in sRGB color space (and promptly convert to
     # linear color space, like cameras collect in, because they are physical
-    # items, counting and emiting photons. More photons are not going to hit
+    # items, counting and emitting photons. More photons are not going to hit
+    # the sensor in places where more photons already have. They are linear
+    # devices.)
+    cc_img2 = 255. * np.power(cc_img2 / 255., 1 / 2.2)
+    cc_img2 = np.clip(cc_img2, 0, 255)
+    cc_img2 = cc_img2.astype(np.uint8)
+    cv2.imwrite('gamma.png', cc_img2)
+
+
+def extract_colorchecker_colors(cc_img):
+    cc_img = np.clip(cc_img, 0, 2 ** 14 - 1)
+    cc_img = np.divide(cc_img, 2 ** 6)
+    # Monitors expect their input in sRGB color space (and promptly convert to
+    # linear color space, like cameras collect in, because they are physical
+    # items, counting and emitting photons. More photons are not going to hit
     # the sensor in places where more photons already have. They are linear
     # devices.)
     cc_img = 255. * np.power(cc_img / 255., 1 / 2.2)
     cc_img = np.clip(cc_img, 0, 255)
     cc_img = cc_img.astype(np.uint8)
-    cv2.imwrite('gamma.png', cc_img)
-    # exit(1)
+    # cv2.imwrite('gamma.png', cc_img)
+    # sys.exit(1)
 
-    rows_start = 445
-    cols_start = 283
+    rows_start = 1222
+    cols_start = 1534
 
-    rows_step = 355
-    cols_step = 355
+    rows_step = 534
+    cols_step = 534
 
     rows_off = 50
     cols_off = 50
 
-    rows_sep = 41
-    cols_sep = 41
+    rows_sep = 120
+    cols_sep = 120
 
     box_w = cols_step - cols_off * 2 - cols_sep
     box_h = rows_step - rows_off * 2 - rows_sep
@@ -64,7 +62,7 @@ def extract_colorchecker_colors(fn, adj):
 
     for row in range(rows_n):
         for col in range(cols_n):
-            cc_id = 24 - (row * cols_n + col)
+            cc_id = (row * cols_n + col)
 
             y = rows_start + row * rows_step + rows_off
             x = cols_start + col * cols_step + cols_off
@@ -78,9 +76,7 @@ def extract_colorchecker_colors(fn, adj):
 
             avg_color = np.average(np.average(box, axis=0), axis=0)
 
-            # avg_colors[cc_id - 1] = avg_color
-            avg_colors[cc_id - 1] = np.flip(avg_color, 0)  # convert BGR to RGB
-            # avg_colors[cc_id - 1] = avg_color[::-1]
+            avg_colors[cc_id] = np.flip(avg_color, 0)  # convert BGR to RGB
 
             cv2.imwrite('{0:02d}_{1}_{2}.png'.format(cc_id, row, col), box)
 
@@ -88,24 +84,18 @@ def extract_colorchecker_colors(fn, adj):
 
 
 def create_eqn_terms(x):
+    # The [x[0], x[1], x[2]] terms are already present, as x. Here we are appending new terms.
+
     # return x
     # return np.append(x, [1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3, x[1]**3, x[2]**3, 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3, x[1]**3, x[2]**3, x[0]**4, x[1]**4, x[2]**4, x[0]*x[1], x[0]*x[2], x[1]*x[2], 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3, x[1]**3, x[2]**3, x[0]*x[1], x[0]*x[2], x[1]*x[2], 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3, x[1]**3, x[2]**3, x[0]*x[1], x[0]*x[2], x[1]*x[2], (x[0]*x[1])**2, (x[0]*x[2])**2, (x[1]*x[2])**2, x[0]*x[1]*x[2], 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3/255., x[1]**3, x[2]**3, x[0]*x[1], x[0]*x[2], x[1]*x[2], (x[0]*x[1]/255.)**2, (x[0]*x[2]/255.)**2, (x[1]*x[2]/255.)**2, x[0]*x[1]*x[2]/255., 1])
-    return np.append(x, [x[0] ** 2, x[1] ** 2, x[2] ** 2, x[0] ** 3., x[1] ** 3, x[2] ** 3, x[0] * x[1], x[0] * x[2], x[1] * x[2], (x[0] * x[1]) ** 2,
-                         (x[0] * x[2]) ** 2, (x[1] * x[2]) ** 2, x[0] * x[1] * x[2], 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]*x[1], x[0]*x[2], x[1]*x[2], (x[0]*x[1])**2, (x[0]*x[2])**2, (x[1]*x[2])**2, x[0]*x[1]*x[2], 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]*x[1], x[0]*x[2], x[1]*x[2], (x[0]*x[1])**2, (x[0]*x[2])**2, (x[1]*x[2])**2, x[0]*x[1]*x[2], (x[0]*x[1]*x[2])**2, 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3, x[1]**3, x[2]**3, x[0]*x[1], x[0]*x[2], x[1]*x[2], x[0]*x[1]*x[2], (x[0]*x[1])**2, (x[0]*x[2])**2, (x[1]*x[2])**2, 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3, x[1]**3, x[2]**3, x[0]*x[1], x[0]*x[2], x[1]*x[2], x[0]*x[1]*x[2], (x[0]*x[1])**2, (x[0]*x[2])**2, (x[1]*x[2])**2, (x[0]*x[1]*x[2])**2, 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3, x[1]**3, x[2]**3, x[0]*x[1], x[0]*x[2], x[1]*x[2], x[0]*x[1]*x[2], (x[0]*x[1])**2, (x[0]*x[2])**2, (x[1]*x[2])**2, 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3, x[1]**3, x[2]**3, x[0]*x[1], x[0]*x[2], x[1]*x[2], x[0]*x[1]*x[2], (x[0]*x[1])**2, (x[0]*x[2])**2, (x[1]*x[2])**2, (x[0]*x[1]*x[2])**2, 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3, x[1]**3, x[2]**3, x[0]*x[1], x[0]*x[2], x[1]*x[2], x[0]*x[1]*x[2], (x[0]*x[1])**2, (x[0]*x[2])**2, (x[1]*x[2])**2, (x[0]*x[1])**3, (x[0]*x[2])**3, (x[1]*x[2])**3, 1])
-    # return np.append(x, [x[0]**2, x[1]**2, x[2]**2, x[0]**3, x[1]**3, x[2]**3, x[0]*x[1], x[0]*x[2], x[1]*x[2], x[0]*x[1]*x[2], (x[0]*x[1])**2, (x[0]*x[2])**2, (x[1]*x[2])**2, (x[0]*x[1]*x[2])**2, (x[0]*x[1])**3, (x[0]*x[2])**3, (x[1]*x[2])**3, (x[0]*x[1]*x[2])**3, 1])
+    # return np.append(x, [x[0] ** 2, x[1] ** 2, x[2] ** 2, 1])
+    return np.append(x, [x[0] ** 2, x[1] ** 2, x[2] ** 2,
+                         x[0] ** 3, x[1] ** 3, x[2] ** 3, 1])
+    # return np.append(x, [x[0] ** 2, x[1] ** 2, x[2] ** 2,
+    #                      x[0] ** 3., x[1] ** 3, x[2] ** 3,
+    #                      x[0] * x[1], x[0] * x[2], x[1] * x[2],
+    #                      (x[0] * x[1]) ** 2, (x[0] * x[2]) ** 2, (x[1] * x[2]) ** 2,
+    #                      x[0] * x[1] * x[2], 1])
 
 
 def fit_colorchecker_equation(avg_colors):
@@ -158,31 +148,35 @@ def fit_colorchecker_equation(avg_colors):
     # print(a.shape)
     ##res = np.matmul(a, x)
     res = a @ x
-    err = b - res
+    err1 = avg_colors - b
+    err2 = res - b
     # with np.printoptions(precision=3, suppress=True):
     if 1:
-        print('Sample\tActual\tTarget\tProjected\tError')
+        print('Sample\tMeasured\tProjected\tTarget\tError1\tsum(abs(Error1))\tError2\tsum(abs(Error2))')
         np.set_printoptions(precision=2, suppress=True, floatmode='fixed')
         for i in range(res.shape[0]):
-            print(i + 1, avg_colors[i], b[i], res[i], err[i], sep='\t')
+            print(i + 1, avg_colors[i], res[i], b[i], err1[i], f'{np.sum(np.abs(err1[i])):.2f}', err2[i], f'{np.sum(np.abs(err2[i])):.2f}', sep='\t')
+    print(f'sum(error1): {np.sum(err1):.2f}')
+    print(f'sum(abs(error1)): {np.sum(np.abs(err1)):.2f}')
+    print(f'sum(error2): {np.sum(err2):.2f}')
+    print(f'sum(abs(error2)): {np.sum(np.abs(err2)):.2f}')
 
     return x
 
 
-def background_correct_and_apply_colorcheck_correction(fn, adj, x):
-    cc_img = cv2.imread(fn, cv2.IMREAD_UNCHANGED)
-    cc_img = np.clip(cc_img, 0, 2 ** 12 - 1)
-    cc_img = np.divide(cc_img, 2 ** 4)
-    cc_img = np.clip(cc_img, 0, 255)
-    cc_img = cc_img.astype(np.uint8)
-    cv2.imwrite('project_raw.png', cc_img)
+def background_correct_and_apply_colorcheck_correction(cc_img, x):
+    # cc_img = np.clip(cc_img, 0, 2 ** 14 - 1)
+    # cc_img = np.divide(cc_img, 2 ** 6)
+    # cc_img = np.clip(cc_img, 0, 255)
+    # cc_img = cc_img.astype(np.uint8)
+    # cv2.imwrite('project_raw.png', cc_img)
 
-    cc_img = cv2.cvtColor(cc_img, cv2.COLOR_BGR2RGB)
-    cc_img = cc_img[:500, :500, :].copy()
-    cc_img = cv2.imread(fn, cv2.IMREAD_UNCHANGED)
-    cc_img = cc_img * adj
-    cc_img = np.clip(cc_img, 0, 2 ** 12 - 1)
-    cc_img = np.divide(cc_img, 2 ** 4)
+    # cc_img = cv2.cvtColor(cc_img, cv2.COLOR_BGR2RGB)
+    # cc_img = cc_img[:500, :500, :].copy()
+    # cc_img = cv2.imread(fn, cv2.IMREAD_UNCHANGED)
+
+    cc_img = np.clip(cc_img, 0, 2 ** 14 - 1)
+    cc_img = np.divide(cc_img, 2 ** 6)
     cc_img = 255. * np.power(cc_img / 255., 1 / 2.2)
     cc_img = np.clip(cc_img, 0, 255)
     cc_img = cc_img.astype(np.uint8)
@@ -202,26 +196,51 @@ def background_correct_and_apply_colorcheck_correction(fn, adj, x):
 
     aa.shape = s
     aa = cv2.cvtColor(aa, cv2.COLOR_RGB2BGR)
+
     return aa
 
 
 def main():
-    ref_fn = 'reference_20180916165921.png'
-    cc_img_fn = 'colorchecker_20180916165853.png'
-    test_fn = 'colorchecker_20180916165853.png'
+    # A raw image from a camera contains the photon counts
+    # at each photosite. The raw image is only effected by the ISO setting.
+    # The white balance setting does not effect the raw image. However,
+    # the camera selected white balance can be applied with dcraw_emu -w.
+    # The color space used in the raw image
+    # depends on the filters used at the photosites. To convert this a
+    # standard color space, e.g. sRGB, a transformation must be applied. Until
+    # then, red, green, blue, may be different than expected. Dcraw_emu -o 1
+    # will convert the camera raw RGB to sRGB. This conversion is independent of
+    # gamma application. Before a white balance is applied, the raw image's RGB
+    # colors is dependent on the photosite filters. Can each camera, even of
+    # the same make-model, have different filters? For dcraw_emu, if -w is set,
+    # the raw embedded color profile will be used; the default -M setting is to
+    # use the embedded color profile only if white balance correction (-w)
+    # is used. Dcraw_emu can use a darkfield image and take a list of bad
+    # pixels.
+    # https://www.libraw.org/docs/API-datastruct-eng.html
 
-    if len(sys.argv) == 4:
-        ref_fn = sys.argv[1]
-        cc_img_fn = sys.argv[2]
-        test_fn = sys.argv[3]
+    # dcraw_emu -6 -W -g 1 1 -w -o 0 IMG_5963.CR2
+    cc_img_fn = 'IMG_5963.CR2.ppm'
+    # dcraw_emu -6 -W -g 1 1 -w -o 0 IMG_5972.CR2
+    # test_fn = 'IMG_5963.CR2.ppm'
+    test_fn = 'IMG_5972.CR2.ppm'
+
+    if len(sys.argv) == 3:
+        cc_img_fn = sys.argv[1]
+        test_fn = sys.argv[2]
 
     np.set_printoptions(precision=2, suppress=True, floatmode='fixed')
 
-    adj = create_background_adjustment(ref_fn)
-    avg_colors = extract_colorchecker_colors(cc_img_fn, adj)
-    # print(avg_colors)
+    cc_img = cv2.imread(cc_img_fn, cv2.IMREAD_UNCHANGED)
+    extract_colorchecker_colors2(cc_img)
+    sys.exit(1)
+    avg_colors = extract_colorchecker_colors(cc_img)
+    print(avg_colors)
+
     x = fit_colorchecker_equation(avg_colors)
-    corrected_img = background_correct_and_apply_colorcheck_correction(test_fn, adj, x)
+
+    cc_img = cv2.imread(test_fn, cv2.IMREAD_UNCHANGED)
+    corrected_img = background_correct_and_apply_colorcheck_correction(cc_img, x)
     cv2.imwrite('project.png', corrected_img)
 
 

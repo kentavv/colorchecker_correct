@@ -5,3 +5,6 @@ https://en.wikipedia.org/wiki/ColorChecker
 
 Fully automatic method?:
 https://github.com/ryanfb/macduff
+
+Proposed OpenCV improvement: https://github.com/opencv/opencv/wiki/OE-30.-Color-Calibration
+
